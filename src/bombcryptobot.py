@@ -1,3 +1,4 @@
+import logging
 import cv2 as cv
 import pyautogui
 from time import sleep, time
@@ -17,16 +18,21 @@ class BotState:
 
 class BombcryptoBot:
     REFRESH_HEROES_TIMEOUT_SEC = 900
+    LOADING_SCREEN_TIMEOUT_SEC = 300
     lock = None
     state = None
     screenshot = None
     refresh_time = 0
+    loading_time = 0
 
     def __init__(self):
         self.lock = Lock()
+        logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.DEBUG)
+
         self.state = BotState.INITIALIZING
+        self.loading_vision = Vision('img/loading_page.PNG')
+
         self.error_vision = Vision('img/error.PNG')
-        self.server_overloaded_vision = Vision('img/server_overloaded.PNG')
         self.ok_error_vision = Vision('img/ok_error.PNG')
 
         self.connect_wallet_vision = Vision('img/connect_wallet.PNG')
@@ -59,12 +65,28 @@ class BombcryptoBot:
                 return
 
     def check_error(self):
-        if self.error_vision.find(self.screenshot, 0.9) or self.server_overloaded_vision.find(self.screenshot, 0.8):
-            print("Error found")
+        if self.error_vision.find(self.screenshot, 0.9):
+            logging.debug("Error found")
             self.change_state(BotState.ERROR)
             sleep(2)
         elif self.state == BotState.ERROR:
             self.change_state(BotState.SEARCHING)
+
+    def check_loading_page(self):
+        if self.loading_vision.find(self.screenshot, 0.9):
+            if self.loading_time != 0:
+                if time() - self.loading_time > self.LOADING_SCREEN_TIMEOUT_SEC:
+                    logging.debug("Refreshing loading screen")
+                    points = self.loading_vision.find(self.screenshot, 0.9)
+                    self.move_and_click(points[0])
+                    sleep(0.2)
+                    pyautogui.hotkey('f5')
+                    pyautogui.hotkey('f5')
+                    self.loading_time = 0
+                    self.change_state(BotState.SEARCHING)
+            else:
+                logging.debug("Start loading screen timer")
+                self.loading_time = time()
 
     def search(self):
         if self.connect_wallet_vision.find(self.screenshot, 0.9):
@@ -85,74 +107,78 @@ class BombcryptoBot:
         if self.ok_error_vision.find(self.screenshot, 0.9):
             points = self.ok_error_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
-            print("Ok error {}".format(points[0]))
+            logging.debug("Ok error {}".format(points[0]))
         elif self.exit_vision.find(self.screenshot, 0.9):
             points = self.exit_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
+            sleep(0.2)
             pyautogui.hotkey('f5')
-            print("Exit error{}".format(points[0]))
+            pyautogui.hotkey('f5')
+            logging.debug("Exit error{}".format(points[0]))
         sleep(2)
 
     def connect_wallet(self):
         points = self.connect_wallet_vision.find(self.screenshot, 0.9)
         self.move_and_click(points[0])
-        print("Connected {}".format(points[0]))
+        logging.debug("Connected {}".format(points[0]))
 
     def select_wallet(self):
         if self.wait_for_vision_find(self.select_wallet_vision):
             points = self.select_wallet_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
-            print("Wallet Selected {}".format(points[0]))
+            logging.debug("Wallet Selected {}".format(points[0]))
 
     def sign_in(self):
         if self.wait_for_vision_find(self.sign_in_vision):
             points = self.sign_in_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
-            print("Sign in {}".format(points[0]))
+            logging.debug("Sign in {}".format(points[0]))
 
     def treasure_hunt(self):
         if self.wait_for_vision_find(self.treasure_hunt_vision):
             points = self.treasure_hunt_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
-            print("Treasure Hunt {}".format(points[0]))
+            logging.debug("Treasure Hunt {}".format(points[0]))
 
     def next_map(self):
         points = self.next_map_vision.find(self.screenshot, 0.9)
         if points:
             self.move_and_click(points[0])
-            print("Next Map {}".format(points[0]))
+            logging.debug("Next Map {}".format(points[0]))
 
     def put_heroes_to_work(self):
         for i in range(3):
-            print("Work {}".format(i))
+            logging.debug("Work {}".format(i))
             if self.wait_for_vision_find(self.work_vision):
                 points = self.work_vision.find(self.screenshot, 0.9)
                 for point in points:
                     self.move_and_click(point)
-                    sleep(1)
-                pyautogui.drag(0, -350, 0.5, button='left')
-                sleep(0.5)
+                    self.move_and_click(point)
+                    sleep(1.5)
+                if i < 2:
+                    pyautogui.drag(0, -350, 0.5, button='left')
+                    sleep(0.5)
 
     def refresh_heroes(self):
         self.refresh_time = time()
         points = self.back_vision.find(self.screenshot, 0.9)
         self.move_and_click(points[0])
-        print("Back {}".format(points[0]))
+        logging.debug("Back {}".format(points[0]))
         if self.wait_for_vision_find(self.heroes_vision):
             points = self.heroes_vision.find(self.screenshot, 0.9)
             self.move_and_click(points[0])
-            print("Heroes {}".format(points[0]))
+            logging.debug("Heroes {}".format(points[0]))
             self.put_heroes_to_work()
             if self.wait_for_vision_find(self.exit_vision):
                 points = self.exit_vision.find(self.screenshot, 0.9)
                 self.move_and_click(points[0])
-                print("Exit {}".format(points[0]))
+                logging.debug("Exit {}".format(points[0]))
                 self.treasure_hunt()
 
     def start(self):
         self.stopped = False
         main_thread = Thread(target=self.run)
-        checker_thread = Thread(target=self.run_error_checker)
+        checker_thread = Thread(target=self.run_checkers)
         main_thread.start()
         checker_thread.start()
 
@@ -189,8 +215,9 @@ class BombcryptoBot:
                     self.next_map()
                     self.change_state(BotState.SEARCHING)
 
-    def run_error_checker(self):
+    def run_checkers(self):
         while not self.stopped:
             if self.screenshot is not None:
                 self.check_error()
+                self.check_loading_page()
                 sleep(0.05)
