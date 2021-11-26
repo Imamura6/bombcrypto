@@ -36,7 +36,7 @@ class BombcryptoBot:
         self.ok_error_vision = Vision('img/ok_error.PNG')
 
         self.connect_wallet_vision = Vision('img/connect_wallet.PNG')
-        self.select_wallet_vision = Vision('img/select_wallet.PNG')
+        # self.select_wallet_vision = Vision('img/select_wallet.PNG')
         self.sign_in_vision = Vision('img/sign_in.PNG')
         self.treasure_hunt_vision = Vision('img/treasure_hunt.PNG')
 
@@ -93,11 +93,11 @@ class BombcryptoBot:
             self.change_state(BotState.CONNECT_WALLET)
         if self.next_map_vision.find(self.screenshot, 0.9):
             self.change_state(BotState.NEXT_MAP)
-        if self.sleep_vision.find(self.screenshot, 0.9) and time() - self.refresh_time > self.REFRESH_HEROES_TIMEOUT_SEC:
+        if self.sleep_vision.find(self.screenshot, 0.85) and time() - self.refresh_time > self.REFRESH_HEROES_TIMEOUT_SEC:
             self.change_state(BotState.REFRESH_HEROES)
 
     def wait_for_vision_find(self, vision_object):
-        while not vision_object.find(self.screenshot, 0.9):
+        while not vision_object.find(self.screenshot, 0.85):
             if self.state == BotState.ERROR:
                 return False
             sleep(0.05)
@@ -122,11 +122,11 @@ class BombcryptoBot:
         self.move_and_click(points[0])
         logging.debug("Connected {}".format(points[0]))
 
-    def select_wallet(self):
-        if self.wait_for_vision_find(self.select_wallet_vision):
-            points = self.select_wallet_vision.find(self.screenshot, 0.9)
-            self.move_and_click(points[0])
-            logging.debug("Wallet Selected {}".format(points[0]))
+    # def select_wallet(self):
+    #     if self.wait_for_vision_find(self.select_wallet_vision):
+    #         points = self.select_wallet_vision.find(self.screenshot, 0.9)
+    #         self.move_and_click(points[0])
+    #         logging.debug("Wallet Selected {}".format(points[0]))
 
     def sign_in(self):
         if self.wait_for_vision_find(self.sign_in_vision):
@@ -150,11 +150,11 @@ class BombcryptoBot:
         for i in range(3):
             logging.debug("Work {}".format(i))
             if self.wait_for_vision_find(self.work_vision):
-                points = self.work_vision.find(self.screenshot, 0.9)
+                points = self.work_vision.find(self.screenshot, 0.85)
                 for point in points:
                     self.move_and_click(point)
                     self.move_and_click(point)
-                    sleep(1.5)
+                    sleep(1)
                 if i < 2:
                     pyautogui.drag(0, -350, 0.5, button='left')
                     sleep(0.5)
@@ -201,10 +201,10 @@ class BombcryptoBot:
                     self.change_state(BotState.SEARCHING)
                 elif self.state == BotState.CONNECT_WALLET:
                     self.connect_wallet()
-                    self.change_state(BotState.SELECT_WALLET)
-                elif self.state == BotState.SELECT_WALLET:
-                    self.select_wallet()
                     self.change_state(BotState.SIGN_IN)
+                # elif self.state == BotState.SELECT_WALLET:
+                #     self.select_wallet()
+                #     self.change_state(BotState.SIGN_IN)
                 elif self.state == BotState.SIGN_IN:
                     self.sign_in()
                     self.change_state(BotState.TREASURE_HUNT)
