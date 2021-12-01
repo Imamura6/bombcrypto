@@ -82,11 +82,15 @@ class BombcryptoBot:
                     sleep(0.2)
                     pyautogui.hotkey('f5')
                     pyautogui.hotkey('f5')
+                    sleep(1)
                     self.loading_time = 0
                     self.change_state(BotState.SEARCHING)
             else:
                 logging.debug("Start loading screen timer")
                 self.loading_time = time()
+        elif self.loading_time != 0:
+            self.loading_time = 0
+            self.change_state(BotState.SEARCHING)
 
     def search(self):
         if self.connect_wallet_vision.find(self.screenshot, 0.9):
